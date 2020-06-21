@@ -47,7 +47,21 @@ class course_arrange_db:
 
     def getPosition(self, classroom_id):
         r = self.queryClassroom(classroom_id)[0]
-        return r['campus'] + ' ' + r['building'] + ' '+ r['name']
+        return r['name']
+
+    def getClassroomID(self, classroom_name):
+        db = MySQLdb.connect(**self.config)
+        cur = db.cursor()
+        try:
+            cur.execute('SELECT * FROM Classrooms WHERE name == {}'.format(classroom_name))
+            data = cur.fetchall()
+            cur.close()
+            db.close()
+            if len(data) > 0:
+                return data[0][1]
+            return -1 # NOT FOUND
+        except Exception as e:
+            raise e
 
     # 输入: Json type, 可以未经反序列化, 为列表时相当于批量操作
     # 注意: 不能手动插入排课项, 只能修改
@@ -89,7 +103,6 @@ class course_arrange_db:
                                 .format(course_id, teacher_id, classroom_id,
                                time_period, classroom_id, time_period))
                 db.commit()
-                # TODO: 写回到基础信息管理模块
                 data = {
                     'class_time': time_period,
                     'position': self.getPosition(classroom_id)
@@ -166,8 +179,6 @@ class course_arrange_db:
     # 输入: json or python dict
     # name          | type |   说明
     # name            str      教室名
-    # campus          str      校区名
-    # building        str      楼名
     # size            int      教室容量
     # resource       object    表示各类教学资源的配置情况的list,例["投影仪", "黑板", "黑板"]表示有两块黑板和一台投影仪
     def addClassroom(self, params) -> bool:
@@ -177,13 +188,10 @@ class course_arrange_db:
         try:
             row = [
                 params['name'],
-                params['building'],
-                params['campus'],
                 params['size'],
                 _convertResListToBitmap(params['resource'])
             ]
-            cur.execute('''INSERT INTO Classrooms(name, building, campus, size, resource_flag)
-                            VALUES({}, "{}", "{}", "{}", "{}")'''.format(row))
+            cur.execute('''INSERT INTO Classrooms(name, size, resource_flag) VALUES({}, "{}", "{}")'''.format(row))
             db.commit()
         except Exception as e:
             cur.close()
@@ -197,8 +205,6 @@ class course_arrange_db:
     # name          | type |   说明
     # id              int      教室id
     # name            str      教室名
-    # campus          str      校区名
-    # building        str      楼名
     # size            int      教室容量
     # resource       object    表示各类教学资源的配置情况的list,例["投影仪", "黑板", "黑板"]表示有两块黑板和一台投影仪
     def updateClassroom(self, params) -> bool:
@@ -208,13 +214,11 @@ class course_arrange_db:
         try:
             row = [
                 params['name'],
-                params['building'],
-                params['campus'],
                 params['size'],
                 _convertResListToBitmap(params['resource']),
                 params['id']
             ]
-            cur.execute('''UPDATE Classrooms SET name={}, building={}, campus={}, SIZE={}, resource_flag={}
+            cur.execute('''UPDATE Classrooms SET name={}, SIZE={}, resource_flag={}
                             WHERE id={}'''.format(row))
             db.commit()
         except Exception as e:
@@ -242,15 +246,54 @@ class course_arrange_db:
                 final_item = {}
                 final_item['id'] = item[0]
                 final_item['name'] = item[1]
-                final_item['building'] = item[2]
-                final_item['campus'] = item[3]
-                final_item['size'] = item[4]
-                final_item['resource_flag'] = course_arrange_db._convertBitmapToResList(item[5])
+                final_item['size'] = item[2]
+                final_item['resource_flag'] = course_arrange_db._convertBitmapToResList(item[3])
                 result.append(final_item)
             return result
         except Exception as e:
             raise e
 
+
+
     # TODO: 查询教师课表
-    def queryCourseTable(self, teacher_id):
-        pass
+    # 依旧传入json string或python dict, 支持多条件复合搜索
+    # name        | type  |  说明
+    # course_id     int      课程id
+    # teacher_id     int      教师id
+    # classroom_id   int      教室id 或
+    # position      str      上课地点
+    def queryCourseTable(self, params):
+        params = course_arrange_db._parseJsonStr(params)
+        if 'position' in params.keys():
+            pos_id = self.getClassroomID(params['position'])
+            if 'classroom_id' in params.keys() and params['classroom_id'] != pos_id:
+                return []
+            params['classroom_id'] = pos_id
+
+        cond_list = [x + '={}'.format(params[x]) for x in params.keys()]
+        cond_seq = ';'
+        if len(cond_list) > 0:
+            cond_seq = 'WHERE' + (' AND '.join(cond_list)) + ';'
+
+        db = MySQLdb.connect(**self.config)
+        cur = db.cursor()
+        try:
+            # course_id, teacher_id, course_position, occupied_time
+            cur.execute('''
+                        SELECT course_id, teacher_id, name, occupied_time
+                        FROM CourseArrangements LEFT JOIN Classrooms ON CourseArrangements.classroom_id = Classrooms.id
+            ''' + cond_seq)
+            data = cur.fetchall()
+            cur.close()
+            db.close()
+            result = []
+            for item in data:
+                final_item = {}
+                final_item['course_id'] = item[0]
+                final_item['teacher_id'] = item[1]
+                final_item['position'] = item[2]
+                final_item['occupied_time'] = item[3]
+                result.append(final_item)
+            return result
+        except Exception as e:
+            raise e
