@@ -280,9 +280,9 @@ class course_arrange_db:
         try:
             # course_id, teacher_id, course_position, occupied_time
             cur.execute('''
-                        SELECT course_id, teacher_id, name, occupied_time
+                        SELECT course_id, teacher_id, name, classroom_id, occupied_time
                         FROM CourseArrangements LEFT JOIN Classrooms ON CourseArrangements.classroom_id = Classrooms.id
-            ''' + cond_seq)
+            ''' + cond_seq) # 修改1
             data = cur.fetchall()
             cur.close()
             db.close()
@@ -292,7 +292,8 @@ class course_arrange_db:
                 final_item['course_id'] = item[0]
                 final_item['teacher_id'] = item[1]
                 final_item['position'] = item[2]
-                final_item['occupied_time'] = item[3]
+                final_item['classroom_id'] = item[3]   # 修改2
+                final_item['occupied_time'] = item[4]  #
                 result.append(final_item)
             return result
         except Exception as e:
