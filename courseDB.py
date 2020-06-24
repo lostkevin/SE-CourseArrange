@@ -191,7 +191,7 @@ class course_arrange_db:
                 params['size'],
                 course_arrange_db._convertResListToBitmap(params['resource'])
             ]
-            cur.execute('''INSERT INTO Classrooms(name, size, resource_flag) VALUES({}, "{}", "{}")'''.format(row))
+            cur.execute('''INSERT INTO Classrooms(name, size, resource_flag) VALUES({}, "{}", "{}")'''.format(*row))
             db.commit()
         except Exception as e:
             cur.close()
@@ -219,7 +219,7 @@ class course_arrange_db:
                 params['id']
             ]
             cur.execute('''UPDATE Classrooms SET name={}, SIZE={}, resource_flag={}
-                            WHERE id={}'''.format(row))
+                            WHERE id={}'''.format(*row))
             db.commit()
         except Exception as e:
             cur.close()
