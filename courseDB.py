@@ -189,7 +189,7 @@ class course_arrange_db:
             row = [
                 params['name'],
                 params['size'],
-                _convertResListToBitmap(params['resource'])
+                course_arrange_db._convertResListToBitmap(params['resource'])
             ]
             cur.execute('''INSERT INTO Classrooms(name, size, resource_flag) VALUES({}, "{}", "{}")'''.format(row))
             db.commit()
