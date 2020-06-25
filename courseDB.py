@@ -37,14 +37,22 @@ class course_arrange_db:
         db = MySQLdb.connect(**self.config)
         cur = db.cursor()
         cur.execute('SELECT * FROM CourseArrangements WHERE course_id = "{}"'.format(course_id))
-        data = cur.fetchall()
+        data = cur.fetchall()[0]
         cur.close()
         db.close()
-        return data[0] if len(data) > 0 else None
+        if len(data) == 0:
+            return None
+        final_item = {}
+        final_item['course_id'] = data[0]
+        final_item['teacher_id'] = data[1]
+        final_item['classroom_id'] = data[2]   # 修改2
+        final_item['occupied_time'] = data[3]  #
+
+        return final_item
 
     @staticmethod
     def _convertToBitmap(x: int):
-        return int(str(x), 2)
+        return int(str(x))
 
     def getPosition(self, classroom_id):
         r = self.queryClassroom(classroom_id)[0]
@@ -84,7 +92,7 @@ class course_arrange_db:
                 time_period = 0
                 if 'time_period' in item.keys():
                     time_period = item['time_period']
-                time_period = course_arrange_db._convertToBitmap(time_period)
+                # time_period = course_arrange_db._convertToBitmap(time_period)
                 # 检查是否冲突
                 course_info = self._findCourseInfo(course_id)
                 if course_info is None:
