@@ -271,6 +271,7 @@ class course_arrange_db:
             if 'classroom_id' in params.keys() and params['classroom_id'] != pos_id:
                 return []
             params['classroom_id'] = pos_id
+            del params['position']
 
         cond_list = [x + '="{}"'.format(params[x]) for x in params.keys()]
         cond_seq = ';'
