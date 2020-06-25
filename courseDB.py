@@ -12,6 +12,7 @@ class course_arrange_db:
     def __init__(self, db_config, server_url='http://localhost'):
         self.api_root = server_url
         self.config = course_arrange_db._parseJsonStr(db_config)
+        self.config['charset'] = 'utf8'
         try:
             db = MySQLdb.connect(**self.config)
         except Exception as e:
@@ -35,7 +36,7 @@ class course_arrange_db:
     def _findCourseInfo(self, course_id) -> list:
         db = MySQLdb.connect(**self.config)
         cur = db.cursor()
-        cur.execute('SELECT * FROM CourseArrangements WHERE course_id == {}'.format(course_id))
+        cur.execute('SELECT * FROM CourseArrangements WHERE course_id = "{}"'.format(course_id))
         data = cur.fetchall()
         cur.close()
         db.close()
@@ -53,7 +54,7 @@ class course_arrange_db:
         db = MySQLdb.connect(**self.config)
         cur = db.cursor()
         try:
-            cur.execute('SELECT * FROM Classrooms WHERE name == {}'.format(classroom_name))
+            cur.execute('SELECT * FROM Classrooms WHERE name = "{}"'.format(classroom_name))
             data = cur.fetchall()
             cur.close()
             db.close()
@@ -98,7 +99,7 @@ class course_arrange_db:
                 if time_period & self.queryTeacherOccupiedTime(teacher_id) != 0:
                     continue
                 # 都不冲突, 更新课程数据
-                cur.execute("""INSERT INTO CourseArrangements VALUES ({}, {}, {}, '{}')
+                cur.execute("""INSERT INTO CourseArrangements VALUES ("{}", "{}", "{}", "{}")
                                 ON DUPLICATE KEY UPDATE classroom_id=VALUES({}), occupied_time=VALUES('{}');"""
                                 .format(course_id, teacher_id, classroom_id,
                                time_period, classroom_id, time_period))
@@ -118,7 +119,7 @@ class course_arrange_db:
     def queryClassroomOccupiedTime(self, classroom_id):
         db = MySQLdb.connect(**self.config)
         cur = db.cursor()
-        cur.execute('SELECT occupied_time FROM CourseArrangements WHERE classroom_id={}'.format(classroom_id))
+        cur.execute('SELECT occupied_time FROM CourseArrangements WHERE classroom_id="{}"'.format(classroom_id))
         res = cur.fetchall()
         occupied_time = 0
         for item in res:
@@ -130,7 +131,7 @@ class course_arrange_db:
     def queryTeacherOccupiedTime(self, teacher_id) -> int:
         db = MySQLdb.connect(**self.config)
         cur = db.cursor()
-        cur.execute('SELECT occupied_time FROM CourseArrangements WHERE teacher_id={}'.format(teacher_id))
+        cur.execute('SELECT occupied_time FROM CourseArrangements WHERE teacher_id="{}"'.format(teacher_id))
         res = cur.fetchall()
         occupied_time = 0
         for item in res:
@@ -165,7 +166,7 @@ class course_arrange_db:
         db = MySQLdb.connect(**self.config)
         cur = db.cursor()
         try:
-            cur.execute('DELETE FROM Classrooms WHERE id={}'.format(classroom_id))
+            r = cur.execute('DELETE FROM Classrooms WHERE id="{}"'.format(classroom_id))
             db.commit()
         except Exception as e:
             cur.close()
@@ -173,7 +174,7 @@ class course_arrange_db:
             return False
         cur.close()
         db.close()
-        return True
+        return r > 0
 
     # 教室名, 校区, 教学楼
     # 输入: json or python dict
@@ -191,9 +192,10 @@ class course_arrange_db:
                 params['size'],
                 course_arrange_db._convertResListToBitmap(params['resource'])
             ]
-            cur.execute('''INSERT INTO Classrooms(name, size, resource_flag) VALUES({}, "{}", "{}")'''.format(*row))
+            cur.execute('''INSERT INTO Classrooms(name, size, resource_flag) VALUES("{}", "{}", "{}")'''.format(*row))
             db.commit()
         except Exception as e:
+            print(e)
             cur.close()
             db.close()
             return False
@@ -215,11 +217,11 @@ class course_arrange_db:
             row = [
                 params['name'],
                 params['size'],
-                _convertResListToBitmap(params['resource']),
+                course_arrange_db._convertResListToBitmap(params['resource']),
                 params['id']
             ]
-            cur.execute('''UPDATE Classrooms SET name={}, SIZE={}, resource_flag={}
-                            WHERE id={}'''.format(*row))
+            cur.execute('''UPDATE Classrooms SET name="{}", SIZE="{}", resource_flag="{}"
+                            WHERE id="{}"'''.format(*row))
             db.commit()
         except Exception as e:
             cur.close()
@@ -237,7 +239,7 @@ class course_arrange_db:
             if classroom_id is None:
                 cur.execute('SELECT * FROM Classrooms')
             else:
-                cur.execute('SELECT * FROM Classrooms WHERE id == {}'.format(classroom_id))
+                cur.execute('SELECT * FROM Classrooms WHERE id = "{}"'.format(classroom_id))
             data = cur.fetchall()
             cur.close()
             db.close()
@@ -270,7 +272,7 @@ class course_arrange_db:
                 return []
             params['classroom_id'] = pos_id
 
-        cond_list = [x + '={}'.format(params[x]) for x in params.keys()]
+        cond_list = [x + '="{}"'.format(params[x]) for x in params.keys()]
         cond_seq = ';'
         if len(cond_list) > 0:
             cond_seq = 'WHERE' + (' AND '.join(cond_list)) + ';'
